@@ -10,19 +10,36 @@ This service provides a REST API for creating and managing to-do items. Each ite
 
 - **Items with no due date** never become "past due" and remain "not done" until explicitly marked as done.
 - **Creating an item with a past due date** is allowed; the item is immediately assigned "past due" status.
-- **Past-due detection** uses a hybrid approach: a scheduled job runs every minute to batch-update overdue items, and a real-time guard on every mutation prevents modifying items that became overdue between scheduler runs.
-- **Idempotent status operations**: marking an already-done item as "done" (or an already-not-done item as "not done") succeeds as a no-op rather than returning an error.
+- **Past-due consistency** uses a hybrid approach: a scheduled job runs every minute to batch-update overdue items, and the service also synchronizes overdue items at API call time for stronger read/write consistency.
+- **Idempotent status operations**: marking an already-done item as "done" (or an already-not-done item as "not done") succeeds as a no-op and does not rewrite business timestamps.
 - **"Get not done" endpoint** returns only items with status "not done" (excludes both "done" and "past due" items). Use `?includeAll=true` to retrieve all items.
 
 ## Tech Stack
 
-- **Runtime**: Java 17 (Eclipse Temurin)
+- **Runtime**: Java 21 (Eclipse Temurin)
 - **Framework**: Spring Boot 3.2.5
 - **Persistence**: Spring Data JPA with H2 in-memory database
 - **Validation**: Jakarta Bean Validation (Hibernate Validator)
+- **Operations**: Spring Boot Actuator (health/readiness/liveness), graceful shutdown
 - **Testing**: JUnit 5, Mockito, Spring MockMvc, AssertJ
 - **Build**: Apache Maven
 - **Containerization**: Docker (multi-stage build)
+
+## Production Readiness Notes
+
+- **Consistency**
+  - Optimistic locking (`@Version`) prevents lost updates on concurrent writes.
+  - Overdue-state synchronization happens both in scheduler and during API requests.
+- **Scalability**
+  - Bulk JPQL update is used for overdue transitions (no per-row entity loading for batch transitions).
+  - Database indexes are present for high-frequency query fields (`status`, `dueAt`).
+- **Availability/Operations**
+  - Graceful shutdown is enabled.
+  - Actuator health endpoints are exposed for platform probes:
+    - `/actuator/health`
+    - `/actuator/health/liveness`
+    - `/actuator/health/readiness`
+  - Docker image runs as a non-root user and includes a readiness healthcheck.
 
 ## API Endpoints
 

@@ -7,12 +7,19 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "todo_items")
+@Table(
+        name = "todo_items",
+        indexes = {
+            @Index(name = "idx_todo_status", columnList = "status"),
+            @Index(name = "idx_todo_due_at", columnList = "dueAt")
+        })
 public class TodoItem {
 
     public enum TodoStatus {
@@ -25,7 +32,7 @@ public class TodoItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 500)
     private String description;
 
     @Column(nullable = false)
@@ -38,6 +45,9 @@ public class TodoItem {
     private LocalDateTime dueAt;
 
     private LocalDateTime doneAt;
+
+    @Version
+    private Long version;
 
     @PrePersist
     protected void onCreate() {
@@ -93,5 +103,13 @@ public class TodoItem {
 
     public void setDoneAt(LocalDateTime doneAt) {
         this.doneAt = doneAt;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 }

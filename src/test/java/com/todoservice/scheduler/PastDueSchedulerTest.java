@@ -31,7 +31,7 @@ class PastDueSchedulerTest {
 
     @Test
     void markOverdueItems_transitionsNotDoneItemsWithPastDueDate() {
-        TodoItem overdueItem = createItem("Overdue", TodoStatus.NOT_DONE, LocalDateTime.now().minusHours(1));
+        TodoItem overdueItem = createItem("Overdue", TodoStatus.NOT_DONE, LocalDateTime.of(2000, 1, 1, 0, 0));
         repository.save(overdueItem);
 
         scheduler.markOverdueItems();
@@ -42,8 +42,8 @@ class PastDueSchedulerTest {
 
     @Test
     void markOverdueItems_doesNotAffectDoneItems() {
-        TodoItem doneItem = createItem("Done", TodoStatus.DONE, LocalDateTime.now().minusHours(1));
-        doneItem.setDoneAt(LocalDateTime.now().minusHours(2));
+        TodoItem doneItem = createItem("Done", TodoStatus.DONE, LocalDateTime.of(2000, 1, 1, 0, 0));
+        doneItem.setDoneAt(LocalDateTime.of(2000, 1, 1, 0, 0));
         repository.save(doneItem);
 
         scheduler.markOverdueItems();
@@ -65,7 +65,7 @@ class PastDueSchedulerTest {
 
     @Test
     void markOverdueItems_doesNotAffectItemsWithFutureDueDate() {
-        TodoItem futureItem = createItem("Future", TodoStatus.NOT_DONE, LocalDateTime.now().plusDays(1));
+        TodoItem futureItem = createItem("Future", TodoStatus.NOT_DONE, LocalDateTime.of(2999, 1, 1, 0, 0));
         repository.save(futureItem);
 
         scheduler.markOverdueItems();

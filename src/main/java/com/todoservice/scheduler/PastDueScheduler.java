@@ -1,10 +1,8 @@
 package com.todoservice.scheduler;
 
-import com.todoservice.entity.TodoItem;
-import com.todoservice.entity.TodoItem.TodoStatus;
 import com.todoservice.repository.TodoItemRepository;
+import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -17,21 +15,20 @@ public class PastDueScheduler {
     private static final Logger log = LoggerFactory.getLogger(PastDueScheduler.class);
 
     private final TodoItemRepository repository;
+    private final Clock clock;
 
-    public PastDueScheduler(TodoItemRepository repository) {
+    public PastDueScheduler(TodoItemRepository repository, Clock clock) {
         this.repository = repository;
+        this.clock = clock;
     }
 
     @Scheduled(cron = "${past-due.check.cron}")
     @Transactional
     public void markOverdueItems() {
-        LocalDateTime now = LocalDateTime.now();
-        List<TodoItem> overdueItems = repository.findOverdueItems(now);
+        int updatedItems = repository.markOverdueItems(LocalDateTime.now(clock));
 
-        if (!overdueItems.isEmpty()) {
-            log.info("Marking {} item(s) as PAST_DUE", overdueItems.size());
-            overdueItems.forEach(item -> item.setStatus(TodoStatus.PAST_DUE));
-            repository.saveAll(overdueItems);
+        if (updatedItems > 0) {
+            log.info("Marked {} item(s) as PAST_DUE", updatedItems);
         }
     }
 }
