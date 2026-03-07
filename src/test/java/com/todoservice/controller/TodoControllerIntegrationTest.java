@@ -150,8 +150,9 @@ class TodoControllerIntegrationTest {
 
         mockMvc.perform(get("/api/todos"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].description", is("Not done task")));
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].description", is("Not done task")))
+                .andExpect(jsonPath("$.totalElements", is(1)));
     }
 
     @Test
@@ -162,7 +163,24 @@ class TodoControllerIntegrationTest {
 
         mockMvc.perform(get("/api/todos").param("includeAll", "true"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)));
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements", is(2)));
+    }
+
+    @Test
+    void getAllItems_withPagination_appliesPageAndSize() throws Exception {
+        createTodoAndGetId("Task 1", LocalDateTime.now().plusDays(1));
+        createTodoAndGetId("Task 2", LocalDateTime.now().plusDays(1));
+        createTodoAndGetId("Task 3", LocalDateTime.now().plusDays(1));
+
+        mockMvc.perform(get("/api/todos")
+                        .param("page", "0")
+                        .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.size", is(2)))
+                .andExpect(jsonPath("$.number", is(0)))
+                .andExpect(jsonPath("$.totalElements", is(3)));
     }
 
     @Test

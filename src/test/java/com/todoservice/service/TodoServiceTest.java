@@ -16,7 +16,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +23,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 @ExtendWith(MockitoExtension.class)
 class TodoServiceTest {
@@ -181,30 +183,32 @@ class TodoServiceTest {
 
     @Test
     void getAllItems_includeAllFalse_returnsOnlyNotDone() {
-        TodoItem doneItem = new TodoItem();
-        doneItem.setStatus(TodoStatus.DONE);
+        PageRequest pageRequest = PageRequest.of(0, 20);
 
-        when(repository.findByStatus(TodoStatus.NOT_DONE)).thenReturn(List.of(sampleItem));
+        when(repository.findByStatus(TodoStatus.NOT_DONE, pageRequest))
+                .thenReturn(new PageImpl<>(java.util.List.of(sampleItem), pageRequest, 1));
 
-        List<TodoItem> result = todoService.getAllItems(false);
+        Page<TodoItem> result = todoService.getAllItems(false, pageRequest);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getStatus()).isEqualTo(TodoStatus.NOT_DONE);
-        verify(repository).findByStatus(TodoStatus.NOT_DONE);
-        verify(repository, never()).findAll();
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getStatus()).isEqualTo(TodoStatus.NOT_DONE);
+        verify(repository).findByStatus(TodoStatus.NOT_DONE, pageRequest);
+        verify(repository, never()).findAll(pageRequest);
     }
 
     @Test
     void getAllItems_includeAllTrue_returnsAll() {
         TodoItem doneItem = new TodoItem();
         doneItem.setStatus(TodoStatus.DONE);
+        PageRequest pageRequest = PageRequest.of(0, 20);
 
-        when(repository.findAll()).thenReturn(List.of(sampleItem, doneItem));
+        when(repository.findAll(pageRequest))
+                .thenReturn(new PageImpl<>(java.util.List.of(sampleItem, doneItem), pageRequest, 2));
 
-        List<TodoItem> result = todoService.getAllItems(true);
+        Page<TodoItem> result = todoService.getAllItems(true, pageRequest);
 
-        assertThat(result).hasSize(2);
-        verify(repository).findAll();
+        assertThat(result.getContent()).hasSize(2);
+        verify(repository).findAll(pageRequest);
     }
 
     @Test

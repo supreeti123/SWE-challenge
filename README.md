@@ -24,6 +24,7 @@ This service provides a REST API for creating and managing to-do items. Each ite
 - **Testing**: JUnit 5, Mockito, Spring MockMvc, AssertJ
 - **Build**: Apache Maven
 - **Containerization**: Docker (multi-stage build)
+- **API Contract**: OpenAPI 3 via springdoc (`/api-docs`, `/swagger-ui.html`)
 
 ## Production Readiness Notes
 
@@ -49,9 +50,14 @@ This service provides a REST API for creating and managing to-do items. Each ite
 | `PATCH` | `/api/todos/{id}/description` | Change an item's description |
 | `PATCH` | `/api/todos/{id}/done` | Mark an item as done |
 | `PATCH` | `/api/todos/{id}/not-done` | Mark an item as not done |
-| `GET` | `/api/todos` | Get all "not done" items |
-| `GET` | `/api/todos?includeAll=true` | Get all items regardless of status |
+| `GET` | `/api/todos` | Get paginated "not done" items |
+| `GET` | `/api/todos?includeAll=true` | Get paginated items regardless of status |
 | `GET` | `/api/todos/{id}` | Get details of a specific item |
+
+Pagination query params for `GET /api/todos`:
+- `page` (default `0`)
+- `size` (default `20`, max `100`)
+- `sort` (default `createdAt,desc`)
 
 ## How To
 
@@ -68,8 +74,8 @@ mvn test
 ```
 
 The test suite includes:
-- **Unit tests** (15): Service layer logic with mocked repository
-- **Integration tests** (13): Full HTTP request/response cycle with H2 database
+- **Unit tests** (16): Service layer logic with mocked repository
+- **Integration tests** (14): Full HTTP request/response cycle with H2 database
 - **Scheduler tests** (4): Past-due batch transition logic
 - **Smoke test** (1): Spring application context loads
 
@@ -89,9 +95,21 @@ The service starts on `http://localhost:8080`.
 
 **H2 Console** is available at `http://localhost:8080/h2-console` (JDBC URL: `jdbc:h2:mem:tododb`, username: `sa`, no password).
 
+**OpenAPI docs**:
+- Spec: `http://localhost:8080/api-docs`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+
 ### Run with Docker
 
 ```bash
 docker build -t todo-service .
 docker run -p 8080:8080 todo-service
 ```
+
+## CI and Security Scan
+
+GitHub Actions workflow (`.github/workflows/ci.yml`) runs:
+- Maven build + tests (`mvn -B clean verify`)
+- Docker image build
+- Trivy filesystem scan
+- Trivy container image scan
