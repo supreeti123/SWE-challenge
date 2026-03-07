@@ -11,6 +11,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Persistence repository for querying and mutating {@link TodoItem} entities.
+ */
 @Repository
 public interface TodoItemRepository extends JpaRepository<TodoItem, Long> {
 

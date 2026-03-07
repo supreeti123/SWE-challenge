@@ -4,6 +4,9 @@ import com.todoservice.entity.TodoItem;
 import com.todoservice.entity.TodoItem.TodoStatus;
 import java.time.LocalDateTime;
 
+/**
+ * Response DTO representing todo item details returned by the API.
+ */
 public class TodoItemResponse {
 
     private Long id;

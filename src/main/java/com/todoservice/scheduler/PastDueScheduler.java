@@ -9,6 +9,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Scheduled component that batch-updates overdue not-done items to past-due.
+ */
 @Component
 public class PastDueScheduler {
 

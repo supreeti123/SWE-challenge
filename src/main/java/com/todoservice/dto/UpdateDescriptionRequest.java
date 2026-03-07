@@ -3,6 +3,9 @@ package com.todoservice.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/**
+ * Request payload for updating the description of an existing todo item.
+ */
 public class UpdateDescriptionRequest {
 
     @NotBlank(message = "Description must not be blank")

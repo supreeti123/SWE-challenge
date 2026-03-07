@@ -12,6 +12,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Service layer that contains business rules for todo lifecycle management.
+ */
 @Service
 @Transactional
 public class TodoService {

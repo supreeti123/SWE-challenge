@@ -13,6 +13,9 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 
+/**
+ * JPA entity representing a single todo item and its status timestamps.
+ */
 @Entity
 @Table(
         name = "todo_items",

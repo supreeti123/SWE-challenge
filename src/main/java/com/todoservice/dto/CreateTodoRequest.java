@@ -4,6 +4,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 
+/**
+ * Request payload for creating a new todo item.
+ */
 public class CreateTodoRequest {
 
     @NotBlank(message = "Description must not be blank")

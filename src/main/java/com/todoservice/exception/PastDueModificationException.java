@@ -1,5 +1,8 @@
 package com.todoservice.exception;
 
+/**
+ * Exception thrown when a mutation is attempted on a past-due item.
+ */
 public class PastDueModificationException extends RuntimeException {
 
     public PastDueModificationException(Long id) {
