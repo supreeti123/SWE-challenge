@@ -182,6 +182,19 @@ class TodoServiceTest {
     }
 
     @Test
+    void markNotDone_alreadyNotDoneItem_isNoOp() {
+        sampleItem.setStatus(TodoStatus.NOT_DONE);
+        sampleItem.setDoneAt(null);
+        when(repository.findById(1L)).thenReturn(Optional.of(sampleItem));
+
+        TodoItem result = todoService.markNotDone(1L);
+
+        assertThat(result.getStatus()).isEqualTo(TodoStatus.NOT_DONE);
+        assertThat(result.getDoneAt()).isNull();
+        verify(repository, never()).save(sampleItem);
+    }
+
+    @Test
     void getAllItems_includeAllFalse_returnsOnlyNotDone() {
         PageRequest pageRequest = PageRequest.of(0, 20);
 

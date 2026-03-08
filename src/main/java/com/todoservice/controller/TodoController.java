@@ -48,7 +48,8 @@ public class TodoController {
             summary = "Add a new todo item",
             responses = {
                 @ApiResponse(responseCode = "201", description = "Todo item created"),
-                @ApiResponse(responseCode = "400", description = "Invalid request payload")
+                @ApiResponse(responseCode = "400", description = "Invalid request payload"),
+                @ApiResponse(responseCode = "429", description = "Write rate limit exceeded")
             })
     public ResponseEntity<TodoItemResponse> addItem(@Valid @RequestBody CreateTodoRequest request) {
         TodoItem item = todoService.addItem(request.getDescription(), request.getDueAt());
@@ -61,7 +62,8 @@ public class TodoController {
             responses = {
                 @ApiResponse(responseCode = "200", description = "Todo item updated"),
                 @ApiResponse(responseCode = "404", description = "Todo item not found"),
-                @ApiResponse(responseCode = "422", description = "Past-due items cannot be modified")
+                @ApiResponse(responseCode = "422", description = "Past-due items cannot be modified"),
+                @ApiResponse(responseCode = "429", description = "Write rate limit exceeded")
             })
     public ResponseEntity<TodoItemResponse> changeDescription(
             @PathVariable @Positive Long id,
@@ -76,7 +78,8 @@ public class TodoController {
             responses = {
                 @ApiResponse(responseCode = "200", description = "Todo item marked as done"),
                 @ApiResponse(responseCode = "404", description = "Todo item not found"),
-                @ApiResponse(responseCode = "422", description = "Past-due items cannot be modified")
+                @ApiResponse(responseCode = "422", description = "Past-due items cannot be modified"),
+                @ApiResponse(responseCode = "429", description = "Write rate limit exceeded")
             })
     public ResponseEntity<TodoItemResponse> markDone(@PathVariable @Positive Long id) {
         TodoItem item = todoService.markDone(id);
@@ -89,7 +92,8 @@ public class TodoController {
             responses = {
                 @ApiResponse(responseCode = "200", description = "Todo item marked as not done"),
                 @ApiResponse(responseCode = "404", description = "Todo item not found"),
-                @ApiResponse(responseCode = "422", description = "Past-due items cannot be modified")
+                @ApiResponse(responseCode = "422", description = "Past-due items cannot be modified"),
+                @ApiResponse(responseCode = "429", description = "Write rate limit exceeded")
             })
     public ResponseEntity<TodoItemResponse> markNotDone(@PathVariable @Positive Long id) {
         TodoItem item = todoService.markNotDone(id);

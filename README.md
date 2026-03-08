@@ -21,6 +21,7 @@ This service provides a REST API for creating and managing to-do items. Each ite
 - **Persistence**: Spring Data JPA with H2 in-memory database
 - **Validation**: Jakarta Bean Validation (Hibernate Validator)
 - **Operations**: Spring Boot Actuator (health/readiness/liveness), graceful shutdown
+- **Metrics**: Micrometer + Prometheus endpoint (`/actuator/prometheus`)
 - **Testing**: JUnit 5, Mockito, Spring MockMvc, AssertJ
 - **Build**: Apache Maven
 - **Containerization**: Docker (multi-stage build)
@@ -31,16 +32,20 @@ This service provides a REST API for creating and managing to-do items. Each ite
 - **Consistency**
   - Optimistic locking (`@Version`) prevents lost updates on concurrent writes.
   - Overdue-state synchronization happens both in scheduler and during API requests.
+  - Standardized error payloads include stable `code`, request `path`, `timestamp`, and correlation `requestId`.
 - **Scalability**
   - Bulk JPQL update is used for overdue transitions (no per-row entity loading for batch transitions).
   - Database indexes are present for high-frequency query fields (`status`, `dueAt`).
+  - Read caching is enabled for stable item states to reduce repeated DB lookups.
 - **Availability/Operations**
   - Graceful shutdown is enabled.
   - Actuator health endpoints are exposed for platform probes:
     - `/actuator/health`
     - `/actuator/health/liveness`
     - `/actuator/health/readiness`
+    - `/actuator/prometheus`
   - Docker image runs as a non-root user and includes a readiness healthcheck.
+  - Write endpoints are protected with an in-memory per-IP rate limiter.
 
 ## API Endpoints
 
@@ -75,7 +80,7 @@ mvn test
 
 The test suite includes:
 - **Unit tests** (16): Service layer logic with mocked repository
-- **Integration tests** (14): Full HTTP request/response cycle with H2 database
+- **Integration tests** (15): Full HTTP request/response cycle with H2 database
 - **Scheduler tests** (4): Past-due batch transition logic
 - **Smoke test** (1): Spring application context loads
 
@@ -98,6 +103,9 @@ The service starts on `http://localhost:8080`.
 **OpenAPI docs**:
 - Spec: `http://localhost:8080/api-docs`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
+
+**Prometheus metrics**:
+- `http://localhost:8080/actuator/prometheus`
 
 ### Run with Docker
 

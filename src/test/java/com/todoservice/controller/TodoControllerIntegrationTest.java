@@ -7,13 +7,16 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.todoservice.dto.CreateTodoRequest;
 import com.todoservice.dto.UpdateDescriptionRequest;
+import com.todoservice.repository.TodoItemRepository;
 import java.time.LocalDateTime;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -35,6 +38,14 @@ class TodoControllerIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private TodoItemRepository repository;
+
+    @BeforeEach
+    void cleanDatabase() {
+        repository.deleteAll();
+    }
 
     @Test
     void addItem_validRequest_returns201() throws Exception {
@@ -59,7 +70,9 @@ class TodoControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", notNullValue()));
+                .andExpect(jsonPath("$.code", is("VALIDATION_FAILED")))
+                .andExpect(jsonPath("$.message", notNullValue()))
+                .andExpect(jsonPath("$.requestId", notNullValue()));
     }
 
     @Test
@@ -71,6 +84,20 @@ class TodoControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status", is("past due")));
+    }
+
+    @Test
+    void addItem_descriptionTooLong_returns400() throws Exception {
+        String longDescription = "a".repeat(501);
+        CreateTodoRequest request = new CreateTodoRequest(longDescription, LocalDateTime.now().plusDays(1));
+
+        mockMvc.perform(post("/api/todos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code", is("VALIDATION_FAILED")))
+                .andExpect(jsonPath("$.message", notNullValue()))
+                .andExpect(jsonPath("$.path", is("/api/todos")));
     }
 
     @Test
@@ -93,7 +120,9 @@ class TodoControllerIntegrationTest {
         mockMvc.perform(patch("/api/todos/{id}/description", 999)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateRequest)))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code", is("TODO_NOT_FOUND")))
+                .andExpect(jsonPath("$.path", is("/api/todos/999/description")));
     }
 
     @Test
@@ -106,7 +135,9 @@ class TodoControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateRequest)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.error", notNullValue()));
+                .andExpect(jsonPath("$.code", is("PAST_DUE_MODIFICATION_FORBIDDEN")))
+                .andExpect(jsonPath("$.message", notNullValue()))
+                .andExpect(jsonPath("$.requestId", notNullValue()));
     }
 
     @Test
@@ -146,7 +177,8 @@ class TodoControllerIntegrationTest {
     void getAllItems_defaultReturnsNotDoneOnly() throws Exception {
         createTodoAndGetId("Not done task", LocalDateTime.now().plusDays(1));
         Long doneId = createTodoAndGetId("Done task", LocalDateTime.now().plusDays(1));
-        mockMvc.perform(patch("/api/todos/{id}/done", doneId));
+        mockMvc.perform(patch("/api/todos/{id}/done", doneId))
+                .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/todos"))
                 .andExpect(status().isOk())
@@ -159,7 +191,8 @@ class TodoControllerIntegrationTest {
     void getAllItems_includeAllReturnsEverything() throws Exception {
         createTodoAndGetId("Not done task", LocalDateTime.now().plusDays(1));
         Long doneId = createTodoAndGetId("Done task", LocalDateTime.now().plusDays(1));
-        mockMvc.perform(patch("/api/todos/{id}/done", doneId));
+        mockMvc.perform(patch("/api/todos/{id}/done", doneId))
+                .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/todos").param("includeAll", "true"))
                 .andExpect(status().isOk())
@@ -184,6 +217,16 @@ class TodoControllerIntegrationTest {
     }
 
     @Test
+    void getAllItems_withOversizedPageSize_isClampedToConfiguredMaximum() throws Exception {
+        createTodoAndGetId("Task 1", LocalDateTime.now().plusDays(1));
+        createTodoAndGetId("Task 2", LocalDateTime.now().plusDays(1));
+
+        mockMvc.perform(get("/api/todos").param("size", "500"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size", is(100)));
+    }
+
+    @Test
     void getItemById_existingItem_returns200() throws Exception {
         Long id = createTodoAndGetId("My task", LocalDateTime.now().plusDays(1));
 
@@ -196,7 +239,34 @@ class TodoControllerIntegrationTest {
     @Test
     void getItemById_nonExistentItem_returns404() throws Exception {
         mockMvc.perform(get("/api/todos/{id}", 999))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code", is("TODO_NOT_FOUND")))
+                .andExpect(jsonPath("$.path", is("/api/todos/999")));
+    }
+
+    @Test
+    void getItemById_invalidPathVariable_returns400() throws Exception {
+        mockMvc.perform(get("/api/todos/{id}", -1))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code", is("VALIDATION_FAILED")));
+    }
+
+    @Test
+    void requestId_isPropagatedWhenProvided() throws Exception {
+        Long id = createTodoAndGetId("Request ID task", LocalDateTime.now().plusDays(1));
+        String requestId = "test-request-id-123";
+
+        mockMvc.perform(get("/api/todos/{id}", id).header("X-Request-Id", requestId))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Request-Id", requestId));
+    }
+
+    @Test
+    void requestId_isGeneratedForErrorResponses() throws Exception {
+        mockMvc.perform(get("/api/todos/{id}", 999))
+                .andExpect(status().isNotFound())
+                .andExpect(header().exists("X-Request-Id"))
+                .andExpect(jsonPath("$.requestId", notNullValue()));
     }
 
     private Long createTodoAndGetId(String description, LocalDateTime dueAt) throws Exception {

@@ -7,6 +7,9 @@ import com.todoservice.exception.TodoNotFoundException;
 import com.todoservice.repository.TodoItemRepository;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -39,6 +42,7 @@ public class TodoService {
         return repository.save(item);
     }
 
+    @CachePut(cacheNames = "todoById", key = "#id", unless = "#result.status.name() == 'NOT_DONE'")
     public TodoItem changeDescription(Long id, String newDescription) {
         synchronizeOverdueItems();
         TodoItem item = findByIdOrThrow(id);
@@ -47,6 +51,7 @@ public class TodoService {
         return repository.save(item);
     }
 
+    @CachePut(cacheNames = "todoById", key = "#id")
     public TodoItem markDone(Long id) {
         synchronizeOverdueItems();
         TodoItem item = findByIdOrThrow(id);
@@ -61,6 +66,7 @@ public class TodoService {
         return repository.save(item);
     }
 
+    @CacheEvict(cacheNames = "todoById", key = "#id")
     public TodoItem markNotDone(Long id) {
         synchronizeOverdueItems();
         TodoItem item = findByIdOrThrow(id);
@@ -83,6 +89,7 @@ public class TodoService {
         return repository.findByStatus(TodoStatus.NOT_DONE, pageable);
     }
 
+    @Cacheable(cacheNames = "todoById", key = "#id", unless = "#result.status.name() == 'NOT_DONE'")
     public TodoItem getItemById(Long id) {
         synchronizeOverdueItems();
         return findByIdOrThrow(id);
