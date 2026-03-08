@@ -6,7 +6,7 @@ import com.todoservice.exception.PastDueModificationException;
 import com.todoservice.exception.TodoNotFoundException;
 import com.todoservice.repository.TodoItemRepository;
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
  * Service layer that contains business rules for todo lifecycle management.
  */
 @Service
-@Transactional
 public class TodoService {
 
     private final TodoItemRepository repository;
@@ -30,12 +29,13 @@ public class TodoService {
         this.clock = clock;
     }
 
-    public TodoItem addItem(String description, LocalDateTime dueAt) {
+    @Transactional
+    public TodoItem addItem(String description, Instant dueAt) {
         TodoItem item = new TodoItem();
         item.setDescription(description);
         item.setDueAt(dueAt);
 
-        if (dueAt != null && dueAt.isBefore(LocalDateTime.now(clock))) {
+        if (dueAt != null && dueAt.isBefore(Instant.now(clock))) {
             item.setStatus(TodoStatus.PAST_DUE);
         }
 
@@ -43,6 +43,7 @@ public class TodoService {
     }
 
     @CachePut(cacheNames = "todoById", key = "#id", unless = "#result.status.name() == 'NOT_DONE'")
+    @Transactional
     public TodoItem changeDescription(Long id, String newDescription) {
         synchronizeOverdueItems();
         TodoItem item = findByIdOrThrow(id);
@@ -52,6 +53,7 @@ public class TodoService {
     }
 
     @CachePut(cacheNames = "todoById", key = "#id")
+    @Transactional
     public TodoItem markDone(Long id) {
         synchronizeOverdueItems();
         TodoItem item = findByIdOrThrow(id);
@@ -62,15 +64,20 @@ public class TodoService {
         }
 
         item.setStatus(TodoStatus.DONE);
-        item.setDoneAt(LocalDateTime.now(clock));
+        item.setDoneAt(Instant.now(clock));
         return repository.save(item);
     }
 
     @CacheEvict(cacheNames = "todoById", key = "#id")
+    @Transactional
     public TodoItem markNotDone(Long id) {
         synchronizeOverdueItems();
         TodoItem item = findByIdOrThrow(id);
         ensureNotPastDue(item);
+
+        if (item.getDueAt() != null && item.getDueAt().isBefore(Instant.now(clock))) {
+            throw new PastDueModificationException(item.getId());
+        }
 
         if (item.getStatus() == TodoStatus.NOT_DONE && item.getDoneAt() == null) {
             return item;
@@ -81,17 +88,17 @@ public class TodoService {
         return repository.save(item);
     }
 
+    @Transactional(readOnly = true)
     public Page<TodoItem> getAllItems(boolean includeAll, Pageable pageable) {
-        synchronizeOverdueItems();
         if (includeAll) {
             return repository.findAll(pageable);
         }
         return repository.findByStatus(TodoStatus.NOT_DONE, pageable);
     }
 
+    @Transactional(readOnly = true)
     @Cacheable(cacheNames = "todoById", key = "#id", unless = "#result.status.name() == 'NOT_DONE'")
     public TodoItem getItemById(Long id) {
-        synchronizeOverdueItems();
         return findByIdOrThrow(id);
     }
 
@@ -107,7 +114,7 @@ public class TodoService {
         // Real-time check: catch items that became past due between scheduler runs
         if (item.getDueAt() != null
                 && item.getStatus() == TodoStatus.NOT_DONE
-                && item.getDueAt().isBefore(LocalDateTime.now(clock))) {
+                && item.getDueAt().isBefore(Instant.now(clock))) {
             item.setStatus(TodoStatus.PAST_DUE);
             repository.save(item);
             throw new PastDueModificationException(item.getId());
@@ -115,6 +122,6 @@ public class TodoService {
     }
 
     private void synchronizeOverdueItems() {
-        repository.markOverdueItems(LocalDateTime.now(clock));
+        repository.markOverdueItems(Instant.now(clock));
     }
 }

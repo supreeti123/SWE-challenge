@@ -2,7 +2,7 @@ package com.todoservice.repository;
 
 import com.todoservice.entity.TodoItem;
 import com.todoservice.entity.TodoItem.TodoStatus;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -27,5 +27,5 @@ public interface TodoItemRepository extends JpaRepository<TodoItem, Long> {
                AND t.dueAt IS NOT NULL
                AND t.dueAt < :now
             """)
-    int markOverdueItems(@Param("now") LocalDateTime now);
+    int markOverdueItems(@Param("now") Instant now);
 }

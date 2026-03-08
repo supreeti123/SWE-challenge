@@ -8,7 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.todoservice.dto.CreateTodoRequest;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -35,7 +36,7 @@ class RateLimitIntegrationTest {
 
     @Test
     void writeRequests_exceedingRateLimit_returns429() throws Exception {
-        CreateTodoRequest request = new CreateTodoRequest("Limited write", LocalDateTime.now().plusDays(1));
+        CreateTodoRequest request = new CreateTodoRequest("Limited write", Instant.now().plus(1, ChronoUnit.DAYS));
         String payload = objectMapper.writeValueAsString(request);
 
         mockMvc.perform(post("/api/todos")

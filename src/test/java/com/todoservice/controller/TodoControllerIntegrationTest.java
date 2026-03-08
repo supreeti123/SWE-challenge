@@ -14,15 +14,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.todoservice.dto.CreateTodoRequest;
 import com.todoservice.dto.UpdateDescriptionRequest;
+import com.todoservice.entity.TodoItem;
+import com.todoservice.entity.TodoItem.TodoStatus;
 import com.todoservice.repository.TodoItemRepository;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -30,7 +32,6 @@ import org.springframework.test.web.servlet.MvcResult;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class TodoControllerIntegrationTest {
 
     @Autowired
@@ -49,7 +50,7 @@ class TodoControllerIntegrationTest {
 
     @Test
     void addItem_validRequest_returns201() throws Exception {
-        CreateTodoRequest request = new CreateTodoRequest("Buy groceries", LocalDateTime.now().plusDays(1));
+        CreateTodoRequest request = new CreateTodoRequest("Buy groceries", Instant.now().plus(1, ChronoUnit.DAYS));
 
         mockMvc.perform(post("/api/todos")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -64,7 +65,7 @@ class TodoControllerIntegrationTest {
 
     @Test
     void addItem_blankDescription_returns400() throws Exception {
-        CreateTodoRequest request = new CreateTodoRequest("", LocalDateTime.now().plusDays(1));
+        CreateTodoRequest request = new CreateTodoRequest("", Instant.now().plus(1, ChronoUnit.DAYS));
 
         mockMvc.perform(post("/api/todos")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -77,7 +78,7 @@ class TodoControllerIntegrationTest {
 
     @Test
     void addItem_pastDueDate_createsWithPastDueStatus() throws Exception {
-        CreateTodoRequest request = new CreateTodoRequest("Overdue task", LocalDateTime.now().minusDays(1));
+        CreateTodoRequest request = new CreateTodoRequest("Overdue task", Instant.now().minus(1, ChronoUnit.DAYS));
 
         mockMvc.perform(post("/api/todos")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -89,7 +90,7 @@ class TodoControllerIntegrationTest {
     @Test
     void addItem_descriptionTooLong_returns400() throws Exception {
         String longDescription = "a".repeat(501);
-        CreateTodoRequest request = new CreateTodoRequest(longDescription, LocalDateTime.now().plusDays(1));
+        CreateTodoRequest request = new CreateTodoRequest(longDescription, Instant.now().plus(1, ChronoUnit.DAYS));
 
         mockMvc.perform(post("/api/todos")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -102,7 +103,7 @@ class TodoControllerIntegrationTest {
 
     @Test
     void changeDescription_validRequest_returns200() throws Exception {
-        Long id = createTodoAndGetId("Original description", LocalDateTime.now().plusDays(1));
+        Long id = createTodoAndGetId("Original description", Instant.now().plus(1, ChronoUnit.DAYS));
 
         UpdateDescriptionRequest updateRequest = new UpdateDescriptionRequest("Updated description");
 
@@ -127,7 +128,7 @@ class TodoControllerIntegrationTest {
 
     @Test
     void changeDescription_pastDueItem_returns422() throws Exception {
-        Long id = createTodoAndGetId("Past due task", LocalDateTime.now().minusDays(1));
+        Long id = createTodoAndGetId("Past due task", Instant.now().minus(1, ChronoUnit.DAYS));
 
         UpdateDescriptionRequest updateRequest = new UpdateDescriptionRequest("New desc");
 
@@ -142,7 +143,7 @@ class TodoControllerIntegrationTest {
 
     @Test
     void markDone_notDoneItem_returns200() throws Exception {
-        Long id = createTodoAndGetId("Task to complete", LocalDateTime.now().plusDays(1));
+        Long id = createTodoAndGetId("Task to complete", Instant.now().plus(1, ChronoUnit.DAYS));
 
         mockMvc.perform(patch("/api/todos/{id}/done", id))
                 .andExpect(status().isOk())
@@ -152,7 +153,7 @@ class TodoControllerIntegrationTest {
 
     @Test
     void markDone_pastDueItem_returns422() throws Exception {
-        Long id = createTodoAndGetId("Past due task", LocalDateTime.now().minusDays(1));
+        Long id = createTodoAndGetId("Past due task", Instant.now().minus(1, ChronoUnit.DAYS));
 
         mockMvc.perform(patch("/api/todos/{id}/done", id))
                 .andExpect(status().isUnprocessableEntity());
@@ -160,7 +161,7 @@ class TodoControllerIntegrationTest {
 
     @Test
     void markNotDone_doneItem_returns200() throws Exception {
-        Long id = createTodoAndGetId("Task to undo", LocalDateTime.now().plusDays(1));
+        Long id = createTodoAndGetId("Task to undo", Instant.now().plus(1, ChronoUnit.DAYS));
 
         // First mark done
         mockMvc.perform(patch("/api/todos/{id}/done", id))
@@ -174,9 +175,28 @@ class TodoControllerIntegrationTest {
     }
 
     @Test
+    void markNotDone_doneItemWithExpiredDueDate_returns422AndKeepsDoneState() throws Exception {
+        TodoItem expiredDone = new TodoItem();
+        expiredDone.setDescription("Expired done");
+        expiredDone.setStatus(TodoStatus.DONE);
+        expiredDone.setDueAt(Instant.parse("2000-01-01T00:00:00Z"));
+        expiredDone.setDoneAt(Instant.parse("1999-12-31T23:00:00Z"));
+        expiredDone = repository.save(expiredDone);
+
+        mockMvc.perform(patch("/api/todos/{id}/not-done", expiredDone.getId()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code", is("PAST_DUE_MODIFICATION_FORBIDDEN")));
+
+        mockMvc.perform(get("/api/todos/{id}", expiredDone.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("done")))
+                .andExpect(jsonPath("$.doneAt", notNullValue()));
+    }
+
+    @Test
     void getAllItems_defaultReturnsNotDoneOnly() throws Exception {
-        createTodoAndGetId("Not done task", LocalDateTime.now().plusDays(1));
-        Long doneId = createTodoAndGetId("Done task", LocalDateTime.now().plusDays(1));
+        createTodoAndGetId("Not done task", Instant.now().plus(1, ChronoUnit.DAYS));
+        Long doneId = createTodoAndGetId("Done task", Instant.now().plus(1, ChronoUnit.DAYS));
         mockMvc.perform(patch("/api/todos/{id}/done", doneId))
                 .andExpect(status().isOk());
 
@@ -189,8 +209,8 @@ class TodoControllerIntegrationTest {
 
     @Test
     void getAllItems_includeAllReturnsEverything() throws Exception {
-        createTodoAndGetId("Not done task", LocalDateTime.now().plusDays(1));
-        Long doneId = createTodoAndGetId("Done task", LocalDateTime.now().plusDays(1));
+        createTodoAndGetId("Not done task", Instant.now().plus(1, ChronoUnit.DAYS));
+        Long doneId = createTodoAndGetId("Done task", Instant.now().plus(1, ChronoUnit.DAYS));
         mockMvc.perform(patch("/api/todos/{id}/done", doneId))
                 .andExpect(status().isOk());
 
@@ -202,9 +222,9 @@ class TodoControllerIntegrationTest {
 
     @Test
     void getAllItems_withPagination_appliesPageAndSize() throws Exception {
-        createTodoAndGetId("Task 1", LocalDateTime.now().plusDays(1));
-        createTodoAndGetId("Task 2", LocalDateTime.now().plusDays(1));
-        createTodoAndGetId("Task 3", LocalDateTime.now().plusDays(1));
+        createTodoAndGetId("Task 1", Instant.now().plus(1, ChronoUnit.DAYS));
+        createTodoAndGetId("Task 2", Instant.now().plus(1, ChronoUnit.DAYS));
+        createTodoAndGetId("Task 3", Instant.now().plus(1, ChronoUnit.DAYS));
 
         mockMvc.perform(get("/api/todos")
                         .param("page", "0")
@@ -218,8 +238,8 @@ class TodoControllerIntegrationTest {
 
     @Test
     void getAllItems_withOversizedPageSize_isClampedToConfiguredMaximum() throws Exception {
-        createTodoAndGetId("Task 1", LocalDateTime.now().plusDays(1));
-        createTodoAndGetId("Task 2", LocalDateTime.now().plusDays(1));
+        createTodoAndGetId("Task 1", Instant.now().plus(1, ChronoUnit.DAYS));
+        createTodoAndGetId("Task 2", Instant.now().plus(1, ChronoUnit.DAYS));
 
         mockMvc.perform(get("/api/todos").param("size", "500"))
                 .andExpect(status().isOk())
@@ -228,7 +248,7 @@ class TodoControllerIntegrationTest {
 
     @Test
     void getItemById_existingItem_returns200() throws Exception {
-        Long id = createTodoAndGetId("My task", LocalDateTime.now().plusDays(1));
+        Long id = createTodoAndGetId("My task", Instant.now().plus(1, ChronoUnit.DAYS));
 
         mockMvc.perform(get("/api/todos/{id}", id))
                 .andExpect(status().isOk())
@@ -253,7 +273,7 @@ class TodoControllerIntegrationTest {
 
     @Test
     void requestId_isPropagatedWhenProvided() throws Exception {
-        Long id = createTodoAndGetId("Request ID task", LocalDateTime.now().plusDays(1));
+        Long id = createTodoAndGetId("Request ID task", Instant.now().plus(1, ChronoUnit.DAYS));
         String requestId = "test-request-id-123";
 
         mockMvc.perform(get("/api/todos/{id}", id).header("X-Request-Id", requestId))
@@ -269,7 +289,7 @@ class TodoControllerIntegrationTest {
                 .andExpect(jsonPath("$.requestId", notNullValue()));
     }
 
-    private Long createTodoAndGetId(String description, LocalDateTime dueAt) throws Exception {
+    private Long createTodoAndGetId(String description, Instant dueAt) throws Exception {
         CreateTodoRequest request = new CreateTodoRequest(description, dueAt);
 
         MvcResult result = mockMvc.perform(post("/api/todos")

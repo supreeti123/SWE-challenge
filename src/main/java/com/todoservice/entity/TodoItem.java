@@ -11,7 +11,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * JPA entity representing a single todo item and its status timestamps.
@@ -43,18 +43,18 @@ public class TodoItem {
     private TodoStatus status = TodoStatus.NOT_DONE;
 
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
-    private LocalDateTime dueAt;
+    private Instant dueAt;
 
-    private LocalDateTime doneAt;
+    private Instant doneAt;
 
     @Version
     private Long version;
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
     }
 
     public TodoItem() {
@@ -84,27 +84,27 @@ public class TodoItem {
         this.status = status;
     }
 
-    public LocalDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
+    public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
 
-    public LocalDateTime getDueAt() {
+    public Instant getDueAt() {
         return dueAt;
     }
 
-    public void setDueAt(LocalDateTime dueAt) {
+    public void setDueAt(Instant dueAt) {
         this.dueAt = dueAt;
     }
 
-    public LocalDateTime getDoneAt() {
+    public Instant getDoneAt() {
         return doneAt;
     }
 
-    public void setDoneAt(LocalDateTime doneAt) {
+    public void setDoneAt(Instant doneAt) {
         this.doneAt = doneAt;
     }
 

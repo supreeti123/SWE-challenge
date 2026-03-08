@@ -10,6 +10,7 @@ This service provides a REST API for creating and managing to-do items. Each ite
 
 - **Items with no due date** never become "past due" and remain "not done" until explicitly marked as done.
 - **Creating an item with a past due date** is allowed; the item is immediately assigned "past due" status.
+- **Timestamp model** uses UTC-safe `Instant` values for all persisted timestamps (`createdAt`, `dueAt`, `doneAt`).
 - **Past-due consistency** uses a hybrid approach: a scheduled job runs every minute to batch-update overdue items, and the service also synchronizes overdue items at API call time for stronger read/write consistency.
 - **Idempotent status operations**: marking an already-done item as "done" (or an already-not-done item as "not done") succeeds as a no-op and does not rewrite business timestamps.
 - **"Get not done" endpoint** returns only items with status "not done" (excludes both "done" and "past due" items). Use `?includeAll=true` to retrieve all items.
@@ -21,11 +22,18 @@ This service provides a REST API for creating and managing to-do items. Each ite
 - **Persistence**: Spring Data JPA with H2 in-memory database
 - **Validation**: Jakarta Bean Validation (Hibernate Validator)
 - **Operations**: Spring Boot Actuator (health/readiness/liveness), graceful shutdown
-- **Metrics**: Micrometer + Prometheus endpoint (`/actuator/prometheus`)
 - **Testing**: JUnit 5, Mockito, Spring MockMvc, AssertJ
 - **Build**: Apache Maven
 - **Containerization**: Docker (multi-stage build)
 - **API Contract**: OpenAPI 3 via springdoc (`/api-docs`, `/swagger-ui.html`)
+
+## Architecture Decisions
+
+Design decisions are documented as ADRs in `docs/adr`:
+- `0001-overdue-state-consistency.md`
+- `0002-error-contract-and-correlation.md`
+- `0003-rate-limiting-strategy.md`
+- `0004-caching-strategy.md`
 
 ## Production Readiness Notes
 
@@ -43,7 +51,6 @@ This service provides a REST API for creating and managing to-do items. Each ite
     - `/actuator/health`
     - `/actuator/health/liveness`
     - `/actuator/health/readiness`
-    - `/actuator/prometheus`
   - Docker image runs as a non-root user and includes a readiness healthcheck.
   - Write endpoints are protected with an in-memory per-IP rate limiter.
 
@@ -78,17 +85,16 @@ mvn clean package
 mvn test
 ```
 
-The test suite includes:
-- **Unit tests** (16): Service layer logic with mocked repository
-- **Integration tests** (15): Full HTTP request/response cycle with H2 database
-- **Scheduler tests** (4): Past-due batch transition logic
-- **Smoke test** (1): Spring application context loads
-
 ### Run the service locally
 
 **With Maven:**
 ```bash
 mvn spring-boot:run
+```
+
+**With explicit profile:**
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 **With the packaged JAR:**
@@ -104,9 +110,6 @@ The service starts on `http://localhost:8080`.
 - Spec: `http://localhost:8080/api-docs`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 
-**Prometheus metrics**:
-- `http://localhost:8080/actuator/prometheus`
-
 ### Run with Docker
 
 ```bash
@@ -114,10 +117,5 @@ docker build -t todo-service .
 docker run -p 8080:8080 todo-service
 ```
 
-## CI and Security Scan
+Docker uses the `prod` profile by default (`SPRING_PROFILES_ACTIVE=prod`).
 
-GitHub Actions workflow (`.github/workflows/ci.yml`) runs:
-- Maven build + tests (`mvn -B clean verify`)
-- Docker image build
-- Trivy filesystem scan
-- Trivy container image scan

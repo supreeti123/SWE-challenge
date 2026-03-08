@@ -20,6 +20,7 @@ RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC"
+ENV SPRING_PROFILES_ACTIVE=prod
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost:8080/actuator/health/readiness || exit 1

@@ -5,17 +5,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.todoservice.entity.TodoItem;
 import com.todoservice.entity.TodoItem.TodoStatus;
 import com.todoservice.repository.TodoItemRepository;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class PastDueSchedulerTest {
 
     @Autowired
@@ -31,7 +29,7 @@ class PastDueSchedulerTest {
 
     @Test
     void markOverdueItems_transitionsNotDoneItemsWithPastDueDate() {
-        TodoItem overdueItem = createItem("Overdue", TodoStatus.NOT_DONE, LocalDateTime.of(2000, 1, 1, 0, 0));
+        TodoItem overdueItem = createItem("Overdue", TodoStatus.NOT_DONE, Instant.parse("2000-01-01T00:00:00Z"));
         repository.save(overdueItem);
 
         scheduler.markOverdueItems();
@@ -42,8 +40,8 @@ class PastDueSchedulerTest {
 
     @Test
     void markOverdueItems_doesNotAffectDoneItems() {
-        TodoItem doneItem = createItem("Done", TodoStatus.DONE, LocalDateTime.of(2000, 1, 1, 0, 0));
-        doneItem.setDoneAt(LocalDateTime.of(2000, 1, 1, 0, 0));
+        TodoItem doneItem = createItem("Done", TodoStatus.DONE, Instant.parse("2000-01-01T00:00:00Z"));
+        doneItem.setDoneAt(Instant.parse("2000-01-01T00:00:00Z"));
         repository.save(doneItem);
 
         scheduler.markOverdueItems();
@@ -65,7 +63,7 @@ class PastDueSchedulerTest {
 
     @Test
     void markOverdueItems_doesNotAffectItemsWithFutureDueDate() {
-        TodoItem futureItem = createItem("Future", TodoStatus.NOT_DONE, LocalDateTime.of(2999, 1, 1, 0, 0));
+        TodoItem futureItem = createItem("Future", TodoStatus.NOT_DONE, Instant.parse("2999-01-01T00:00:00Z"));
         repository.save(futureItem);
 
         scheduler.markOverdueItems();
@@ -74,7 +72,7 @@ class PastDueSchedulerTest {
         assertThat(result.getStatus()).isEqualTo(TodoStatus.NOT_DONE);
     }
 
-    private TodoItem createItem(String description, TodoStatus status, LocalDateTime dueAt) {
+    private TodoItem createItem(String description, TodoStatus status, Instant dueAt) {
         TodoItem item = new TodoItem();
         item.setDescription(description);
         item.setStatus(status);

@@ -2,7 +2,7 @@ package com.todoservice.scheduler;
 
 import com.todoservice.repository.TodoItemRepository;
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,7 +28,7 @@ public class PastDueScheduler {
     @Scheduled(cron = "${past-due.check.cron}")
     @Transactional
     public void markOverdueItems() {
-        int updatedItems = repository.markOverdueItems(LocalDateTime.now(clock));
+        int updatedItems = repository.markOverdueItems(Instant.now(clock));
 
         if (updatedItems > 0) {
             log.info("Marked {} item(s) as PAST_DUE", updatedItems);

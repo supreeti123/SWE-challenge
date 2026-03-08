@@ -52,7 +52,7 @@ public class TodoController {
                 @ApiResponse(responseCode = "429", description = "Write rate limit exceeded")
             })
     public ResponseEntity<TodoItemResponse> addItem(@Valid @RequestBody CreateTodoRequest request) {
-        TodoItem item = todoService.addItem(request.getDescription(), request.getDueAt());
+        TodoItem item = todoService.addItem(request.description(), request.dueAt());
         return ResponseEntity.status(HttpStatus.CREATED).body(TodoItemResponse.fromEntity(item));
     }
 
@@ -68,7 +68,7 @@ public class TodoController {
     public ResponseEntity<TodoItemResponse> changeDescription(
             @PathVariable @Positive Long id,
             @Valid @RequestBody UpdateDescriptionRequest request) {
-        TodoItem item = todoService.changeDescription(id, request.getDescription());
+        TodoItem item = todoService.changeDescription(id, request.description());
         return ResponseEntity.ok(TodoItemResponse.fromEntity(item));
     }
 

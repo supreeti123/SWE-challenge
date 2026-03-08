@@ -15,7 +15,6 @@ import com.todoservice.repository.TodoItemRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,8 +45,8 @@ class TodoServiceTest {
         sampleItem.setId(1L);
         sampleItem.setDescription("Buy groceries");
         sampleItem.setStatus(TodoStatus.NOT_DONE);
-        sampleItem.setCreatedAt(LocalDateTime.of(2026, 1, 1, 0, 0));
-        sampleItem.setDueAt(LocalDateTime.of(2026, 1, 2, 0, 0));
+        sampleItem.setCreatedAt(Instant.parse("2026-01-01T00:00:00Z"));
+        sampleItem.setDueAt(Instant.parse("2026-01-02T00:00:00Z"));
     }
 
     @Test
@@ -58,7 +57,7 @@ class TodoServiceTest {
             return item;
         });
 
-        TodoItem result = todoService.addItem("Buy groceries", LocalDateTime.of(2026, 1, 2, 0, 0));
+        TodoItem result = todoService.addItem("Buy groceries", Instant.parse("2026-01-02T00:00:00Z"));
 
         assertThat(result.getDescription()).isEqualTo("Buy groceries");
         assertThat(result.getStatus()).isEqualTo(TodoStatus.NOT_DONE);
@@ -69,7 +68,7 @@ class TodoServiceTest {
     void addItem_withPastDueDate_setsStatusPastDue() {
         when(repository.save(any(TodoItem.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        TodoItem result = todoService.addItem("Overdue task", LocalDateTime.of(2025, 12, 31, 0, 0));
+        TodoItem result = todoService.addItem("Overdue task", Instant.parse("2025-12-31T00:00:00Z"));
 
         assertThat(result.getStatus()).isEqualTo(TodoStatus.PAST_DUE);
     }
@@ -133,7 +132,7 @@ class TodoServiceTest {
 
     @Test
     void markDone_itemWithExpiredDueDate_throwsPastDueException() {
-        sampleItem.setDueAt(LocalDateTime.of(2025, 12, 31, 23, 0));
+        sampleItem.setDueAt(Instant.parse("2025-12-31T23:00:00Z"));
         when(repository.findById(1L)).thenReturn(Optional.of(sampleItem));
         when(repository.save(any(TodoItem.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -148,7 +147,7 @@ class TodoServiceTest {
 
     @Test
     void markDone_alreadyDoneItem_doesNotOverwriteDoneTimestamp() {
-        LocalDateTime originalDoneAt = LocalDateTime.of(2025, 12, 31, 12, 0);
+        Instant originalDoneAt = Instant.parse("2025-12-31T12:00:00Z");
         sampleItem.setStatus(TodoStatus.DONE);
         sampleItem.setDoneAt(originalDoneAt);
         when(repository.findById(1L)).thenReturn(Optional.of(sampleItem));
@@ -162,7 +161,7 @@ class TodoServiceTest {
     @Test
     void markNotDone_doneItem_setsStatusNotDoneAndClearsDoneAt() {
         sampleItem.setStatus(TodoStatus.DONE);
-        sampleItem.setDoneAt(LocalDateTime.now());
+        sampleItem.setDoneAt(Instant.parse("2026-01-01T00:00:00Z"));
         when(repository.findById(1L)).thenReturn(Optional.of(sampleItem));
         when(repository.save(any(TodoItem.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -179,6 +178,19 @@ class TodoServiceTest {
 
         assertThatThrownBy(() -> todoService.markNotDone(1L))
                 .isInstanceOf(PastDueModificationException.class);
+    }
+
+    @Test
+    void markNotDone_doneItemWithExpiredDueDate_throwsAndDoesNotMutate() {
+        sampleItem.setStatus(TodoStatus.DONE);
+        sampleItem.setDoneAt(Instant.parse("2025-12-31T22:00:00Z"));
+        sampleItem.setDueAt(Instant.parse("2025-12-31T23:00:00Z"));
+        when(repository.findById(1L)).thenReturn(Optional.of(sampleItem));
+
+        assertThatThrownBy(() -> todoService.markNotDone(1L))
+                .isInstanceOf(PastDueModificationException.class);
+
+        verify(repository, never()).save(any(TodoItem.class));
     }
 
     @Test
